@@ -15,6 +15,7 @@ allowed_ids = list(map(int, os.getenv("USER_IDS", "").split(",")))
 admin_ids = list(map(int, os.getenv("ADMIN_IDS", "").split(",")))
 ollama_base_url = os.getenv("OLLAMA_BASE_URL")
 ollama_port = os.getenv("OLLAMA_PORT", "11434")
+ollama_scheme = os.getenv("OLLAMA_SCHEME", "http")
 log_level_str = os.getenv("LOG_LEVEL", "INFO")
 allow_all_users_in_groups = bool(int(os.getenv("ALLOW_ALL_USERS_IN_GROUPS", "0")))
 log_levels = list(logging._levelToName.values())
@@ -27,8 +28,8 @@ logging.basicConfig(level=log_level)
 
 async def manage_model(action: str, model_name: str):
     async with aiohttp.ClientSession() as session:
-        url = f"http://{ollama_base_url}:{ollama_port}/api/{action}"
-        
+        url = f"{ollama_scheme}://{ollama_base_url}:{ollama_port}/api/{action}"
+
         if action == "pull":
             # Use the exact payload structure from the curl example
             data = json.dumps({"name": model_name})
@@ -38,7 +39,7 @@ async def manage_model(action: str, model_name: str):
             logging.info(f"Pulling model: {model_name}")
             logging.info(f"Request URL: {url}")
             logging.info(f"Request Payload: {data}")
-            
+
             async with session.post(url, data=data, headers=headers) as response:
                 logging.info(f"Pull model response status: {response.status}")
                 response_text = await response.text()
@@ -68,15 +69,15 @@ def get_system_prompts(user_id=None, is_global=None):
     c = conn.cursor()
     query = "SELECT * FROM system_prompts WHERE 1=1"
     params = []
-    
+
     if user_id is not None:
         query += " AND user_id = ?"
         params.append(user_id)
-    
+
     if is_global is not None:
         query += " AND is_global = ?"
         params.append(is_global)
-    
+
     c.execute(query, params)
     prompts = c.fetchall()
     conn.close()
@@ -91,18 +92,18 @@ def delete_ystem_prompt(prompt_id):
 
 async def model_list():
     async with aiohttp.ClientSession() as session:
-        url = f"http://{ollama_base_url}:{ollama_port}/api/tags"
+        url = f"{ollama_scheme}://{ollama_base_url}:{ollama_port}/api/tags"
         async with session.get(url) as response:
             if response.status == 200:
                 data = await response.json()
                 return data["models"]
             else:
                 return []
-                
+
 async def generate(payload: dict, modelname: str, prompt: str):
     client_timeout = ClientTimeout(total=int(timeout))
     async with aiohttp.ClientSession(timeout=client_timeout) as session:
-        url = f"http://{ollama_base_url}:{ollama_port}/api/chat"
+        url = f"{ollama_scheme}://{ollama_base_url}:{ollama_port}/api/chat"
 
         # Prepare the payload according to Ollama API specification
         ollama_payload = {
